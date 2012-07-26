@@ -359,6 +359,25 @@ class Chosen extends AbstractChosen
       @current_value = @form_field.value
       
       this.search_field_scale()
+    else if @options.allow_option_creation
+      new_option = @search_field.value
+      return unless new_option
+      if @allow_creation(new_option)
+        @form_field.insert(Element('option', {selected: true, value: new_option}).update(new_option))
+        @results_update_field(evt)
+      @form_field.simulate("change") if typeof Event.simulate is 'function'
+      @search_field.value = ""
+      @results_hide()
+
+  allow_creation: (new_option) ->
+    if @is_multiple
+      matches = @search_choices.getElementsBySelector("li.search-choice span").select (el) ->
+        console.debug(el)
+        el.innerHTML.toLowerCase() == new_option.toLowerCase()
+      console.debug(matches)
+      !matches.length
+    else
+      @selected_item.getElementsBySelector('span').innerHTML.toLowerCase() != new_option.toLowerCase()
 
   result_activate: (el) ->
     el.addClassName("active-result")
@@ -390,8 +409,10 @@ class Chosen extends AbstractChosen
 
     searchText = if @search_field.value is @default_text then "" else @search_field.value.strip().escapeHTML()
     regexAnchor = if @search_contains then "" else "^"
-    regex = new RegExp(regexAnchor + searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i')
-    zregex = new RegExp(searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"), 'i')
+    textToSearch = searchText.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")
+    regex = new RegExp(regexAnchor + textToSearch, 'i')
+    zregex = new RegExp(textToSearch, 'i')
+    fregex = new RegExp("^" + textToSearch + "$", 'i')
 
     for option in @results_data
       if not option.disabled and not option.empty
@@ -400,8 +421,12 @@ class Chosen extends AbstractChosen
         else if not (@is_multiple and option.selected)
           found = false
           result_id = option.dom_id
-          
-          if regex.test option.html
+          result = $(result_id);
+          if @options.allow_option_creation && searchText && fregex.test(option.html)
+            found = true
+            results += 1
+            @result_do_highlight($(option.dom_id))
+          else if regex.test option.html
             found = true
             results += 1
           else if option.html.indexOf(" ") >= 0 or option.html.indexOf("[") == 0
@@ -432,7 +457,8 @@ class Chosen extends AbstractChosen
 
     if results < 1 and searchText.length
       this.no_results(searchText)
-    else
+      @results_hide() if @options.allow_option_creation && @is_multiple
+    else if not @options.allow_option_creation
       this.winnow_results_set_highlight()
 
   winnow_results_clear: ->
@@ -457,6 +483,7 @@ class Chosen extends AbstractChosen
       this.result_do_highlight do_high if do_high?
   
   no_results: (terms) ->
+    return if !@is_multiple && @options.allow_option_creation
     @search_results.insert @no_results_temp.evaluate( terms: terms )
   
   no_results_clear: ->
@@ -515,7 +542,7 @@ class Chosen extends AbstractChosen
         @backstroke_length = this.search_field.value.length
         break
       when 9
-        this.result_select(evt) if this.results_showing and not @is_multiple
+        this.result_select(evt) if this.results_showing and not @is_multiple or this.options.allow_option_creation
         @mouse_on_container = false
         break
       when 13
@@ -553,6 +580,9 @@ class Chosen extends AbstractChosen
 
       dd_top = @container.getHeight()
       @dropdown.setStyle({"top":  dd_top + "px"})
+  
+  search_field_remove_comma: ->
+    @search_field.value = @search_field.value.replace(',','')
 
 root.Chosen = Chosen
 

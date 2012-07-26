@@ -33,6 +33,8 @@ class AbstractChosen
     @choices = 0
     @single_backstroke_delete = @options.single_backstroke_delete || false
     @max_selected_options = @options.max_selected_options || Infinity
+    @allow_option_creation = false
+    @allow_option_creation_comma = false
 
   set_default_text: ->
     if @form_field.getAttribute("data-placeholder")
@@ -101,7 +103,12 @@ class AbstractChosen
           this.results_search()
       when 13
         evt.preventDefault()
-        this.result_select(evt) if this.results_showing
+        this.result_select(evt) if this.results_showing || this.options.allow_option_creation
+      when 188
+        if this.options.allow_option_creation && this.options.allow_option_creation_comma
+            evt.preventDefault()
+            this.search_field_remove_comma()
+            this.result_select(evt)
       when 27
         this.results_hide() if @results_showing
         return true
